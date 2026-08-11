@@ -5,6 +5,9 @@ on:
     - cron: '0 */3 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   update_data:
     runs-on: ubuntu-latest
@@ -31,8 +34,8 @@ jobs:
     - name: Run Python script
       run: python build.py
       env:
-        PECTRAFIED_TOKEN: ${{ secrets.PECTRAFIED_TOKEN }}
-        BEACONCHAIN_TOKEN: ${{ secrets.BEACONCHAIN_TOKEN }}
+        PECTRIFIED_TOKEN: ${{ secrets.PECTRIFIED_TOKEN }}
+        PECTRIFIED_URL: ${{ secrets.PECTRIFIED_URL }}
       
     - name: Commit and push changes
       env:
@@ -41,6 +44,4 @@ jobs:
         git config --global user.name "github-actions[bot]"
         git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git add public/index.html
-        git add historical_data.json
-        git add historical_conversion_data.json
         git diff --quiet && git diff --staged --quiet || (git commit -m "Update index.html with latest validator queue data" && git push https://${GITHUB_TOKEN}@github.com/${{ github.repository }}.git HEAD:${{ github.ref }})
