@@ -1,8 +1,5 @@
 import requests
 import os
-import math
-import time
-import json
 import sys
 from datetime import datetime, timezone
 from dotenv import load_dotenv
@@ -18,18 +15,24 @@ from partials.historical_charts import historical_charts
 from partials.historical_data_json import historical_data_json
 from partials.footer import footer
 
-
 load_dotenv()
-PECTRAFIED_TOKEN = os.environ.get("PECTRAFIED_TOKEN")
-BEACONCHAIN_TOKEN = os.environ.get("BEACONCHAIN_TOKEN")
+PECTRIFIED_TOKEN = os.environ.get("PECTRIFIED_TOKEN")
+PECTRIFIED_URL = os.environ.get("PECTRIFIED_URL")
+
+if not PECTRIFIED_TOKEN or not PECTRIFIED_URL:
+    print("PECTRIFIED_TOKEN and PECTRIFIED_URL must both be set")
+    sys.exit(1)
+
+GWEI_PER_ETH = 1_000_000_000
 
 
 ###############
 # FOR TESTING
 ###############
 
+
 def generate_base_html():
-	html_content = f"""<!DOCTYPE html>
+    html_content = f"""<!DOCTYPE html>
 		<html lang="en">
 		{head}
 		<body>
@@ -41,285 +44,175 @@ def generate_base_html():
 			</div>
 		</body>
 		</html>"""
-	with open("public/index.html", "w") as f:
-		f.write(html_content)
-	sys.exit()
+    with open("public/index.html", "w") as f:
+        f.write(html_content)
+    sys.exit()
+
 
 # generate_base_html()
 
 ###############
 
 
-
-# queue data
-queue_endpoint = f"https://beaconcha.in/api/v1/validators/queue?apikey={BEACONCHAIN_TOKEN}"
+api_url = f"{PECTRIFIED_URL}/validator-queue"
+response = None
 try:
-	queue_response = requests.get(queue_endpoint)
-	queue_response.raise_for_status()
-	queue_json = queue_response.json()
-	print(f"queue_json: {queue_json}")
-	queue_data = queue_json["data"]
+    response = requests.get(
+        api_url, headers={"X-Pectrified-Auth": PECTRIFIED_TOKEN}, timeout=30
+    )
+    response.raise_for_status()
+    api_data = response.json()
+    print(f"API response keys: {list(api_data.keys())}")
 except Exception as e:
-	print(f"Error fetching queue data: {e}")
-	print(f"Queue Response: {queue_response.text}")
-	exit(1)
+    print(f"Error fetching validator queue data: {e}")
+    if response is not None:
+        print(f"Response: {response.text[:500]}")
+    sys.exit(1)
+
+metadata = api_data["metadata"]
+current_time = datetime.now(timezone.utc).timestamp()
 
 
-# network data
-time.sleep(2) # abide by beaconcha.in ratelimit
-epoch_endpoint = f"https://beaconcha.in/api/v1/epoch/finalized?apikey={BEACONCHAIN_TOKEN}"
-try:
-	epoch_response = requests.get(epoch_endpoint)
-	epoch_response.raise_for_status()
-	epoch_json = epoch_response.json()
-	print(f"epoch_json: {epoch_json}")
-	epoch_data = epoch_json["data"]
-except Exception as e:
-	print(f"Error fetching epoch data: {e}")
-	print(f"Epoch Response: {epoch_response.text}")
-	exit(1)
+def format_wait_time(wait_days):
+    """Convert a wait time in days (the API's metadata unit) to a human-readable string."""
+    if wait_days == 0:
+        return "— no queue"
+    total_seconds = round(wait_days * 86400)
+
+    days = total_seconds // 86400
+    days_hours = round((total_seconds % 86400) / 86400 * 24)
+
+    hours = total_seconds // 3600
+    hours_minutes = round((total_seconds % 3600) / 3600 * 60)
+
+    if days > 0:
+        days_text = "day" if days == 1 else "days"
+        hours_text = "hour" if days_hours == 1 else "hours"
+        return f"{days} {days_text}, {days_hours} {hours_text}"
+    elif hours > 0:
+        hours_text = "hour" if hours == 1 else "hours"
+        minutes_text = "minute" if hours_minutes == 1 else "minutes"
+        return f"{hours} {hours_text}, {hours_minutes} {minutes_text}"
+    else:
+        minutes_text = "minute" if hours_minutes == 1 else "minutes"
+        return f"{hours_minutes} {minutes_text}"
 
 
-# apr data
-time.sleep(2) # abide by beaconcha.in ratelimit
-apr_endpoint = f"https://beaconcha.in/api/v1/ethstore/latest?apikey={BEACONCHAIN_TOKEN}"
-try:
-	apr_response = requests.get(apr_endpoint)
-	apr_response.raise_for_status()
-	apr_json = apr_response.json()
-	print(f"apr_json: {apr_json}")
-	apr_data = apr_json["data"]
-except Exception as e:
-	print(f"Error fetching apr data: {e}")
-	print(f"APR Response: {apr_response.text}")
-	exit(1)
+entry_queue_eth = round(metadata["entry_queue"] / GWEI_PER_ETH)
+entry_wait_str = format_wait_time(metadata["entry_wait"])
+exit_queue_eth = round(metadata["exit_queue"] / GWEI_PER_ETH)
+exit_wait_str = format_wait_time(metadata["exit_wait"])
+entry_churn = metadata["churn_activation_per_epoch"]
+exit_churn = metadata["churn_exit_per_epoch"]
+active_validators = metadata["active_validators"]
+amount_eth_staked = round(metadata["staked_eth"])
+percent_eth_staked = metadata.get("staked_percent") or 0
+staking_apr = metadata.get("apr") or 0
 
 
-
-# eth supply
-supply_endpoint = "https://ultrasound.money/api/v2/fees/supply-over-time"
-supply_data = requests.get(supply_endpoint).json()
-try:
-	supply_response = requests.get(supply_endpoint)
-	supply_response.raise_for_status()
-	supply_data = supply_response.json()
-	print(f"supply_data: {supply_data}")
-except Exception as e:
-	print(f"Error fetching supply data: {e}")
-	print(f"Supply Response: {supply_response.text}")
-	exit(1)
+def epoch_ms_to_date(epoch_ms):
+    """Convert epoch milliseconds to 'YYYY-MM-DD' string."""
+    return datetime.fromtimestamp(epoch_ms / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
 
 
-current_time = time.time()
+NULL_CREDENTIAL_FIELDS = {"total": None, "0x00": None, "0x01": None, "0x02": None}
 
 
-def estimate_entry_waiting_time():
-	beaconchain_entering = round(queue_data["beaconchain_entering_balance"]/1000000000)
-	active_validators = queue_data["validatorscount"]
-	entry_waiting_time, entry_waiting_time_days, entry_churn, entry_churn_time_days = calculate_wait_time(active_validators, beaconchain_entering, "entry")
-	print("\nbeaconchain_entering: \n\t" + str(beaconchain_entering))
-	print("\nentry_waiting_time: \n\t" + str(entry_waiting_time))
-	print("\nentry_waiting_time_days: \n\t" + str(entry_waiting_time_days))
-	return entry_waiting_time, entry_waiting_time_days, beaconchain_entering, active_validators, entry_churn
+def build_historical_data(api_data):
+    """Convert API chart series arrays into daily historical_data and historical_conversion_data objects."""
+    meta = api_data["metadata"]
+    vq = api_data["validatorQueue"]
+    qw = api_data["queueWaitTime"]
+    av = api_data["activeValidators"]
+    cr = api_data["credentials"]
+    ss = api_data["supplyStaked"]
+    sa = api_data["stakingApr"]
+
+    # All series except stakingApr are element-wise maps over the same time base,
+    # so they are index-aligned. stakingApr has nulls filtered out and must be
+    # joined by date instead.
+    time_series = vq["time"]
+
+    # Group indices by date, take the first index per day
+    date_indices = {}
+    for i, ts in enumerate(time_series):
+        date_str = epoch_ms_to_date(ts)
+        if date_str not in date_indices:
+            date_indices[date_str] = i
+
+    sorted_dates = sorted(date_indices.keys())
+    indices = [date_indices[d] for d in sorted_dates]
+
+    apr_by_date = {}
+    for ai, ats in enumerate(sa["time"]):
+        apr_by_date[epoch_ms_to_date(ats)] = sa["apr"][ai]
+
+    historical_data = []
+    historical_conversion_data = []
+
+    for idx in indices:
+        date_str = epoch_ms_to_date(time_series[idx])
+        staked_percent = ss["percent"][idx]
+        total_eth = ss["totalEth"][idx]
+
+        historical_data.append(
+            {
+                "date": date_str,
+                "validators": av["count"][idx],
+                "entry_queue": round(vq["entry"][idx]),
+                "entry_wait": round(qw["entry"][idx], 2),
+                "exit_queue": round(vq["exit"][idx]),
+                "exit_wait": round(qw["exit"][idx], 2),
+                "current_entry_churn": meta["churn_activation_per_epoch"],
+                "current_exit_churn": meta["churn_exit_per_epoch"],
+                "ave_entry_churn": meta["churn_activation_per_epoch"],
+                "ave_exit_churn": meta["churn_exit_per_epoch"],
+                # not read by any chart; the API exposes no supply series
+                "supply": None,
+                "staked_amount": round(total_eth),
+                "staked_percent": round(staked_percent, 2)
+                if staked_percent is not None
+                else None,
+                "apr": apr_by_date.get(date_str),
+            }
+        )
+
+        # credentialsPercentChart uses value[type] / value.total, so only the
+        # ratio matters. count/change/slot are read by nothing (the Credentials Δ
+        # card is commented out) and stay null rather than being invented.
+        historical_conversion_data.append(
+            {
+                "date": date_str,
+                "slot": None,
+                "count": dict(NULL_CREDENTIAL_FIELDS),
+                "change": dict(NULL_CREDENTIAL_FIELDS),
+                "value": {
+                    "total": round(total_eth),
+                    "0x00": round(total_eth * cr["0x00"][idx] / 100),
+                    "0x01": round(total_eth * cr["0x01"][idx] / 100),
+                    "0x02": round(total_eth * cr["0x02"][idx] / 100),
+                },
+            }
+        )
+
+    return historical_data, historical_conversion_data
 
 
-def estimate_exit_waiting_time():
-	beaconchain_exiting = round(queue_data["beaconchain_exiting_balance"]/1000000000)
-	active_validators = queue_data["validatorscount"]
-	exit_waiting_time, exit_waiting_time_days, exit_churn, exit_churn_time_days = calculate_wait_time(active_validators, beaconchain_exiting, "exit")
-	print("\nbeaconchain_exiting: \n\t" + str(beaconchain_exiting))
-	print("\nexit_waiting_time: \n\t" + str(exit_waiting_time))
-	print("\nexit_waiting_time_days: \n\t" + str(exit_waiting_time_days))
-	return exit_waiting_time, exit_waiting_time_days, beaconchain_exiting, exit_churn
-
-
-def network_data():
-	eth_supply = round(supply_data["d7"][0]["supply"])
-	print("\neth_supply: \n\t" + str(eth_supply))
-	amount_eth_staked = round(epoch_data["votedether"]/1000000000)
-	print("\namount_eth_staked: \n\t" + str(amount_eth_staked))
-	percent_eth_staked = round(amount_eth_staked/eth_supply * 10000)/100
-	print("\npercent_eth_staked: \n\t" + str(percent_eth_staked))
-	staking_apr = round(apr_data["avgapr7d"] * 10000)/100
-	print("\nstaking_apr: \n\t" + str(staking_apr))
-
-	return eth_supply, amount_eth_staked, percent_eth_staked, staking_apr
-
-
-def calculate_wait_time(active_validators, queue, type):
-	epoch_churn = 256
-	entry_churn = 256
-	exit_churn = 256
-	if type == "entry":
-		epoch_churn = entry_churn
-	if type == "exit":
-		epoch_churn = exit_churn
-	slot_time = 12
-	slots_per_epoch = 32
-	epoch_seconds = slot_time * slots_per_epoch
-	daily_churn = (86400 / epoch_seconds) * epoch_churn
-	churn_time_days = 0
-	
-	if queue > 0:
-		churn_time_days = queue / daily_churn
-
-	print("\nepoch_seconds: \n\t" + str(epoch_seconds))
-	print("\ndaily_churn: \n\t" + str(daily_churn))
-	print("\nchurn_time_days: \n\t" + str(churn_time_days))
-	print("\nepoch_churn: \n\t" + str(epoch_churn))
-
-	waiting_time_seconds = round(churn_time_days * 86400)
-
-	waiting_time_months = math.floor(waiting_time_seconds // 2592000)
-	waiting_time_months_days = round( (waiting_time_seconds % 2592000)/2592000*30 )
-
-	waiting_time_days = math.floor(waiting_time_seconds // 86400)
-	waiting_time_days_hours = round( (waiting_time_seconds % 86400)/86400*24 )
-
-	waiting_time_hours = math.floor(waiting_time_seconds // 3600)
-	waiting_time_hours_minutes = round( (waiting_time_seconds % 3600)/3600*60 )
-
-	waiting_time_days_raw = waiting_time_seconds / 86400
-
-	# if waiting_time_months > 0:
-	#   months_text = "months"
-	#   days_text = "days"
-	#   if waiting_time_months == 1:
-	#       months_text = "month"
-	#   if waiting_time_months_days == 1:
-	#       days_text = "day"
-	#   formatted_wait_time = f"""{waiting_time_months} {months_text}, {waiting_time_months_days} {days_text}"""
-	if waiting_time_days > 0:
-		days_text = "days"
-		hours_text = "hours"
-		if waiting_time_days == 1:
-			days_text = "day"
-		if waiting_time_days_hours == 1:
-			hours_text = "hour"
-		formatted_wait_time = f"""{waiting_time_days} {days_text}, {waiting_time_days_hours} {hours_text}"""
-	elif waiting_time_hours > 0:
-		hours_text = "hours"
-		minutes_text = "minutes"
-		if waiting_time_hours == 1:
-			hours_text = "hour"
-		if waiting_time_hours_minutes == 1:
-			minutes_text = "minute"
-		formatted_wait_time = f"""{waiting_time_hours} {hours_text}, {waiting_time_hours_minutes} {minutes_text}"""
-	else:
-		minutes_text = "minutes"
-		if waiting_time_hours_minutes == 1:
-			minutes_text = "minute"
-		formatted_wait_time = f"""{waiting_time_hours_minutes} {minutes_text}"""
-
-
-	return formatted_wait_time, waiting_time_days_raw, epoch_churn, churn_time_days
-
-
-def update_historical_data(entry_churn, exit_churn):
-	with open('historical_data.json', 'r') as f:
-		all_data = json.load(f)
-		date = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-		todays_data =  {
-			"date":date,
-			"validators":active_validators,
-			"entry_queue":beaconchain_entering,
-			"entry_wait":round(entry_waiting_time_days*100)/100,
-			"exit_queue":beaconchain_exiting,
-			"exit_wait":round(exit_waiting_time_days*100)/100,
-			"current_entry_churn":entry_churn,
-			"current_exit_churn":exit_churn,
-			"ave_entry_churn":entry_churn,
-			"ave_exit_churn":exit_churn,
-			"supply":eth_supply,
-			"staked_amount":amount_eth_staked,
-			"staked_percent":percent_eth_staked,
-			"apr":staking_apr
-		}
-		# print("\nhistorical_data: \n\t" + str(all_data))
-		print("\ntodays_data: \n\t" + str(todays_data))
-		if len(all_data) > 0 and all_data[-1].get('date') is not None:
-			if date != all_data[-1]['date']:
-				all_data.append(todays_data)
-				with open('historical_data.json', 'w') as f:
-					json.dump(all_data, f, indent=None, separators=(',', ':'))
-				f.close()
-				print("historical data has been updated")
-			else:
-				print("historical data for the current date was already recorded")
-		return all_data
-
-
-def update_historical_conversion_data():
-	with open('historical_conversion_data.json', 'r') as f:
-		all_data = json.load(f)
-		date = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-		# print("\nhistorical_conversion_data: \n\t" + str(all_data))
-		if len(all_data) > 0 and all_data[-1].get('date') is not None:
-			# proceed only if data wasn't already save for current day
-			if date != all_data[-1]['date']:
-				url = 'https://api.soloboost.io/803c7cb4cfee45cb82d29ad8102cdd0c'
-				response = requests.get(url, headers={'X-Pectrified-Auth': PECTRAFIED_TOKEN})
-				print('pectrified response', response)
-				# proceed only if successfull call
-				if response.status_code == 200:
-					pectrafied_data = response.json()
-					# response scheme example
-					# {
-						# "stateDate":"2025-05-19T00:18:35.000Z",
-						# "stateEpoch":366640,
-						# "stateSlot":11732491,
-						# "activeValidators":{
-						# 	"count":{
-						# 		"total":1056691,
-						# 		"0x00":12155,
-						# 		"0x01":1041644,
-						# 		"0x02":2892
-						# 	},
-						# 	"value":{
-						# 		"total":"34133402000000000",
-						# 		"0x00":"388764000000000",
-						# 		"0x01":"33332369000000000",
-						# 		"0x02":"412269000000000"
-						# 	}
-						# }
-					# }
-					todays_data = {
-					  "date": date,
-					  "slot":pectrafied_data['stateSlot'],
-					  "count": {
-					    "total":pectrafied_data['activeValidators']['count']['total'],
-					    "0x00":pectrafied_data['activeValidators']['count']['0x00'],
-					    "0x01":pectrafied_data['activeValidators']['count']['0x01'],
-					    "0x02":pectrafied_data['activeValidators']['count']['0x02']
-					  },
-					  "change": {
-					    "total":pectrafied_data['activeValidators']['count']['total'] - all_data[-1]['count']['total'],
-					    "0x00":pectrafied_data['activeValidators']['count']['0x00'] - all_data[-1]['count']['0x00'],
-					    "0x01":pectrafied_data['activeValidators']['count']['0x01'] - all_data[-1]['count']['0x01'],
-					    "0x02":pectrafied_data['activeValidators']['count']['0x02'] - all_data[-1]['count']['0x02']
-					  },
-					  "value": {
-					    "total":round(int(pectrafied_data['activeValidators']['value']['total'])/1000000000),
-					    "0x00":round(int(pectrafied_data['activeValidators']['value']['0x00'])/1000000000),
-					    "0x01":round(int(pectrafied_data['activeValidators']['value']['0x01'])/1000000000),
-					    "0x02":round(int(pectrafied_data['activeValidators']['value']['0x02'])/1000000000)
-					  }
-					}
-					print("\ntodays_conversion_data: \n\t" + str(todays_data))
-					all_data.append(todays_data)
-					with open('historical_conversion_data.json', 'w') as f:
-						json.dump(all_data, f, indent=None, separators=(',', ':'))
-					f.close()
-					print("historical conversion data has been updated")
-				else:
-					print ("pectrified call failed")
-			else:
-				print("historical conversion data for the current date was already recorded")
-		return all_data
-					
-
-def generate_html(entry_waiting_time, beaconchain_entering, exit_waiting_time, beaconchain_exiting, active_validators, entry_churn, exit_churn, amount_eth_staked, percent_eth_staked, staking_apr, historical_data, historical_conversion_data):
-	html_content = f"""<!DOCTYPE html>
+def generate_html(
+    entry_waiting_time,
+    beaconchain_entering,
+    exit_waiting_time,
+    beaconchain_exiting,
+    active_validators,
+    entry_churn,
+    exit_churn,
+    amount_eth_staked,
+    percent_eth_staked,
+    staking_apr,
+    historical_data,
+    historical_conversion_data,
+):
+    html_content = f"""<!DOCTYPE html>
 		<html lang="en">
 		{head}
 		<body>
@@ -330,7 +223,7 @@ def generate_html(entry_waiting_time, beaconchain_entering, exit_waiting_time, b
 				{header(current_time)}
 				{overview(entry_waiting_time, beaconchain_entering, exit_waiting_time, beaconchain_exiting, entry_churn, exit_churn, active_validators, amount_eth_staked, percent_eth_staked, staking_apr)}
 				{faq}
-				{churn_schedule(queue_data["validatorscount"])}
+				{churn_schedule(active_validators)}
 				{historical_charts}
 				{historical_data_json(historical_data, historical_conversion_data)}
 				{footer()}
@@ -338,15 +231,33 @@ def generate_html(entry_waiting_time, beaconchain_entering, exit_waiting_time, b
 		</body>
 		</html>"""
 
-	with open("public/index.html", "w") as f:
-		f.write(html_content)
+    with open("public/index.html", "w") as f:
+        f.write(html_content)
 
 
-entry_waiting_time, entry_waiting_time_days, beaconchain_entering, active_validators, entry_churn = estimate_entry_waiting_time()
-exit_waiting_time, exit_waiting_time_days, beaconchain_exiting, exit_churn = estimate_exit_waiting_time()
-eth_supply, amount_eth_staked, percent_eth_staked, staking_apr = network_data()
-historical_data = update_historical_data(entry_churn, exit_churn)
-historical_conversion_data = update_historical_conversion_data()
+historical_data, historical_conversion_data = build_historical_data(api_data)
 
-generate_html(entry_waiting_time, beaconchain_entering, exit_waiting_time, beaconchain_exiting, active_validators, entry_churn, exit_churn, amount_eth_staked, percent_eth_staked, staking_apr, historical_data, historical_conversion_data)
+print(
+    f"historical_data: {len(historical_data)} rows, {historical_data[0]['date']} -> {historical_data[-1]['date']}"
+)
+print(
+    f"conversion_data: {len(historical_conversion_data)} rows, {historical_conversion_data[0]['date']} -> {historical_conversion_data[-1]['date']}"
+)
+print(
+    f"entry: {entry_queue_eth} ETH, {entry_wait_str} | exit: {exit_queue_eth} ETH, {exit_wait_str}"
+)
 
+generate_html(
+    entry_wait_str,
+    entry_queue_eth,
+    exit_wait_str,
+    exit_queue_eth,
+    active_validators,
+    entry_churn,
+    exit_churn,
+    amount_eth_staked,
+    percent_eth_staked,
+    staking_apr,
+    historical_data,
+    historical_conversion_data,
+)
