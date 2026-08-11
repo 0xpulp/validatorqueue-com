@@ -178,8 +178,8 @@ var credentialsPercentChart = new Chart(document.getElementById('credentialsPerc
 	            data_all: historical_conversion_data.map(row => Math.round(row.value['0x00']/row.value.total*10000)/100),
 				fill: fill,
 				pointStyle: false,
-				borderColor: '#dc3545',
-				backgroundColor: '#dc3545'
+				borderColor: 'rgb(255, 99, 132)',
+				backgroundColor: 'rgb(255, 99, 132)'
 			},
 			{
 	            label: '0x01',
@@ -187,8 +187,8 @@ var credentialsPercentChart = new Chart(document.getElementById('credentialsPerc
 	            data_all: historical_conversion_data.map(row => Math.round(row.value['0x01']/row.value.total*10000)/100),
 				fill: fill,
 				pointStyle: false,
-				borderColor: '#0d6efd',
-				backgroundColor: '#0d6efd'
+				borderColor: 'rgb(75, 192, 192)',
+				backgroundColor: 'rgb(75, 192, 192)'
 			},
 			{
 	            label: '0x02',
