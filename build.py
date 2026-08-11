@@ -108,6 +108,9 @@ active_validators = metadata["active_validators"]
 amount_eth_staked = round(metadata["staked_eth"])
 percent_eth_staked = metadata.get("staked_percent") or 0
 staking_apr = metadata.get("apr") or 0
+consolidation_queue_eth = round(metadata["consolidation_queue"] / GWEI_PER_ETH)
+consolidation_wait_str = format_wait_time(metadata["consolidation_wait"])
+consolidation_churn = metadata["churn_consolidation_per_epoch"]
 
 
 def epoch_ms_to_date(epoch_ms):
@@ -206,6 +209,9 @@ def generate_html(
     active_validators,
     entry_churn,
     exit_churn,
+    consolidation_queue_eth,
+    consolidation_wait_str,
+    consolidation_churn,
     amount_eth_staked,
     percent_eth_staked,
     staking_apr,
@@ -221,7 +227,7 @@ def generate_html(
 			{notification()}
 			<div class="container">
 				{header(current_time)}
-				{overview(entry_waiting_time, beaconchain_entering, exit_waiting_time, beaconchain_exiting, entry_churn, exit_churn, active_validators, amount_eth_staked, percent_eth_staked, staking_apr)}
+				{overview(entry_waiting_time, beaconchain_entering, exit_waiting_time, beaconchain_exiting, entry_churn, exit_churn, active_validators, consolidation_queue_eth, consolidation_wait_str, consolidation_churn, amount_eth_staked, percent_eth_staked, staking_apr)}
 				{faq}
 				{churn_schedule(active_validators)}
 				{historical_charts}
@@ -244,7 +250,7 @@ print(
     f"conversion_data: {len(historical_conversion_data)} rows, {historical_conversion_data[0]['date']} -> {historical_conversion_data[-1]['date']}"
 )
 print(
-    f"entry: {entry_queue_eth} ETH, {entry_wait_str} | exit: {exit_queue_eth} ETH, {exit_wait_str}"
+    f"entry: {entry_queue_eth} ETH, {entry_wait_str} | exit: {exit_queue_eth} ETH, {exit_wait_str} | consolidation: {consolidation_queue_eth} ETH, {consolidation_wait_str}"
 )
 
 generate_html(
@@ -255,6 +261,9 @@ generate_html(
     active_validators,
     entry_churn,
     exit_churn,
+    consolidation_queue_eth,
+    consolidation_wait_str,
+    consolidation_churn,
     amount_eth_staked,
     percent_eth_staked,
     staking_apr,

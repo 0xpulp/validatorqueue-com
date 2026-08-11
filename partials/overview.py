@@ -1,5 +1,19 @@
-def overview(entry_waiting_time, beaconchain_entering, exit_waiting_time, beaconchain_exiting, entry_churn, exit_churn, active_validators, amount_eth_staked, percent_eth_staked, staking_apr):
-	return f"""
+def overview(
+    entry_waiting_time,
+    beaconchain_entering,
+    exit_waiting_time,
+    beaconchain_exiting,
+    entry_churn,
+    exit_churn,
+    active_validators,
+    consolidation_queue_eth,
+    consolidation_wait_str,
+    consolidation_churn,
+    amount_eth_staked,
+    percent_eth_staked,
+    staking_apr,
+):
+    return f"""
 		<div class="d-flex justify-content-center mb-4">
       <div class="d-inline-flex align-items-center gap-2 px-3 py-2 rounded-3 border bg-body-tertiary text-muted small" role="note">
         <span aria-hidden="true">ⓘ</span>
@@ -53,7 +67,7 @@ def overview(entry_waiting_time, beaconchain_entering, exit_waiting_time, beacon
 							    ⓘ
 						    </a>:
 						</span>
-				    	<span>{round(active_validators/115200, 1)} days</span>
+				    	<span>{round(active_validators / 115200, 1)} days</span>
 			    	</div>
 			    	<div class="d-flex justify-content-between">
 				    	<span>Churn: </span>
@@ -68,21 +82,17 @@ def overview(entry_waiting_time, beaconchain_entering, exit_waiting_time, beacon
 			    <h5 class="card-title">Consolidation Queue</h5>
 			    <div class="card-text">
 			    	<div class="d-flex justify-content-between">
-			    		<span>Pectrified: </span>
-			    		<span><a href="https://pectrified.com/mainnet" target="_blank">Queues & Requests</a></span>
-		    		</div>
-		    		<div class="d-flex justify-content-between">
-			    		<span>MigaLabs: </span>
-			    		<span><a href="https://www.migalabs.io/consolidations" target="_blank">Daily Consolidations</a></span>
+			    		<span>ETH: </span>
+			    		<span>{"{:,}".format(consolidation_queue_eth)}</span>
 		    		</div>
 				    <div class="d-flex justify-content-between">
-				    	<span>Beaconcha.in: </span>
-				    	<span><a href="https://light-mainnet.beaconcha.in/validators/el_consolidations" target="_blank">Requests</a></span>
-			    	</div>
+			    		<span>Wait: </span>
+			    		<span>{consolidation_wait_str}</span>
+		    		</div>
 			    	<div class="d-flex justify-content-between">
-				    	<span>Pectra.info: </span>
-				    	<span><a href="https://www.pectra.info/consolidation" target="_blank">Rates by Entity</a></span>
-			    	</div>
+			    		<span>Churn: </span>
+			    		<span>{consolidation_churn}/epoch</span>
+		    		</div>
 				</div>
 			  </div>
 			</div>
@@ -97,7 +107,7 @@ def overview(entry_waiting_time, beaconchain_entering, exit_waiting_time, beacon
 		    		</div>
 				    <div class="d-flex justify-content-between">
 				    	<span>Staked ETH: </span>
-				    	<span>{"{:,}".format(round(amount_eth_staked/100000)/10)}M ({percent_eth_staked}%)</span>
+				    	<span>{"{:,}".format(round(amount_eth_staked / 100000) / 10)}M ({percent_eth_staked}%)</span>
 			    	</div>
 			    	<div class="d-flex justify-content-between">
 				    	<span>APR: </span>
