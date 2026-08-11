@@ -206,53 +206,6 @@ var credentialsPercentChart = new Chart(document.getElementById('credentialsPerc
 	}
 });
 
-var credentialsDiffChart = new Chart(document.getElementById('credentialsDiffChart'), {
-	type: 'line',  
-	data: {
-		labels: historical_conversion_data.map(row => row.date),
-		labels_all: historical_conversion_data.map(row => row.date),
-        datasets: [
-			{
-	            label: '0x00',
-	            data: historical_conversion_data.map(row => row.change['0x00']),
-	            data_all: historical_conversion_data.map(row => row.change['0x00']),
-				fill: fill,
-				pointStyle: false
-			},
-			{
-	            label: '0x01',
-	            data: historical_conversion_data.map(row => row.change['0x01']),
-	            data_all: historical_conversion_data.map(row => row.change['0x01']),
-				fill: fill,
-				pointStyle: false
-			},
-			{
-	            label: '0x02',
-	            data: historical_conversion_data.map(row => row.change['0x02']),
-	            data_all: historical_conversion_data.map(row => row.change['0x02']),
-				fill: fill,
-				pointStyle: false
-			}
-        ]
-	},
-	options: {
-		scales: {
-			x: scales_x,
-			y: {
-				// min: 0,
-                ticks: {
-                    callback: function(value) {
-                        return `${value}`;
-                    }
-                }
-            }
-		},
-		interaction: {
-			intersect: false,
-		}
-	}
-});
-
 var stakedChart = new Chart(document.getElementById('stakedChart'), {
 	type: 'line',  
 	data: {
