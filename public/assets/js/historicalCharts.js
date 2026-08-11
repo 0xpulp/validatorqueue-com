@@ -177,27 +177,21 @@ var credentialsPercentChart = new Chart(document.getElementById('credentialsPerc
 	            data: historical_conversion_data.map(row => Math.round(row.value['0x00']/row.value.total*10000)/100),
 	            data_all: historical_conversion_data.map(row => Math.round(row.value['0x00']/row.value.total*10000)/100),
 				fill: fill,
-				pointStyle: false,
-				borderColor: 'rgb(255, 99, 132)',
-				backgroundColor: 'rgb(255, 99, 132)'
+				pointStyle: false
 			},
 			{
 	            label: '0x01',
 	            data: historical_conversion_data.map(row => Math.round(row.value['0x01']/row.value.total*10000)/100),
 	            data_all: historical_conversion_data.map(row => Math.round(row.value['0x01']/row.value.total*10000)/100),
 				fill: fill,
-				pointStyle: false,
-				borderColor: 'rgb(75, 192, 192)',
-				backgroundColor: 'rgb(75, 192, 192)'
+				pointStyle: false
 			},
 			{
 	            label: '0x02',
 	            data: historical_conversion_data.map(row => Math.round(row.value['0x02']/row.value.total*10000)/100),
 	            data_all: historical_conversion_data.map(row => Math.round(row.value['0x02']/row.value.total*10000)/100),
 				fill: fill,
-				pointStyle: false,
-				borderColor: '#a2d349',
-				backgroundColor: '#a2d349'
+				pointStyle: false
 			}
         ]
 	},
