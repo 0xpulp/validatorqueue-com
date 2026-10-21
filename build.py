@@ -203,9 +203,9 @@ def build_historical_data(api_data):
 
 def generate_html(
     entry_waiting_time,
-    beaconchain_entering,
+    entry_queue_eth,
     exit_waiting_time,
-    beaconchain_exiting,
+    exit_queue_eth,
     active_validators,
     entry_churn,
     exit_churn,
@@ -227,7 +227,7 @@ def generate_html(
 			{notification()}
 			<div class="container">
 				{header(current_time)}
-				{overview(entry_waiting_time, beaconchain_entering, exit_waiting_time, beaconchain_exiting, entry_churn, exit_churn, active_validators, consolidation_queue_eth, consolidation_wait_str, consolidation_churn, amount_eth_staked, percent_eth_staked, staking_apr)}
+				{overview(entry_waiting_time, entry_queue_eth, exit_waiting_time, exit_queue_eth, entry_churn, exit_churn, active_validators, consolidation_queue_eth, consolidation_wait_str, consolidation_churn, amount_eth_staked, percent_eth_staked, staking_apr)}
 				{faq}
 				{churn_schedule(active_validators)}
 				{historical_charts}

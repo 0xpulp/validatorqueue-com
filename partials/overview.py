@@ -1,8 +1,8 @@
 def overview(
     entry_waiting_time,
-    beaconchain_entering,
+    entry_queue_eth,
     exit_waiting_time,
-    beaconchain_exiting,
+    exit_queue_eth,
     entry_churn,
     exit_churn,
     active_validators,
@@ -30,7 +30,7 @@ def overview(
 			    <div class="card-text">
 			    	<div class="d-flex justify-content-between">
 				    	<span>ETH: </span>
-				    	<span>{"{:,}".format(beaconchain_entering)}</span>
+				    	<span>{"{:,}".format(entry_queue_eth)}</span>
 			    	</div>
 				    <div class="d-flex justify-content-between">
 				    	<span>Wait: </span>
@@ -50,7 +50,7 @@ def overview(
 			    <div class="card-text">
 			    	<div class="d-flex justify-content-between">
 			    		<span>ETH: </span>
-			    		<span>{"{:,}".format(beaconchain_exiting)}</span>
+			    		<span>{"{:,}".format(exit_queue_eth)}</span>
 		    		</div>
 				    <div class="d-flex justify-content-between">
 				    	<span>Wait: </span>
