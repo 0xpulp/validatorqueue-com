@@ -3,7 +3,8 @@ def footer():
 		<hr class="mt-5">
 
 	    <p class="text-center my-0 text-muted">
-	    	Made by <a href="https://twitter.com/hanni_abu" target="_blank">hanniabu.eth</a> with <small>❤️</small>
+	    	Maintained by <a href="https://x.com/0xpulp" target="_blank">0xPulp</a><br>
+	    	Made by <a href="https://x.com/hanni_abu" target="_blank">hanniabu.eth</a> with <small>❤️</small>
 		</p>
 
 		<p class="text-center my-4">
