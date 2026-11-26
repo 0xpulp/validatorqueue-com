@@ -61,6 +61,19 @@ jobs:
       with:
         path: 'public'
 
+    - name: Wait for artifact to be queryable
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        ARTIFACTS_URL: https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts
+      run: |
+        for _ in $(seq 1 24); do
+          curl -fsS -H "Authorization: Bearer $GH_TOKEN" "$ARTIFACTS_URL?per_page=100" \
+            | jq -e '.artifacts[] | select(.name == "github-pages")' >/dev/null && exit 0
+          sleep 5
+        done
+        echo '::error::github-pages artifact never became queryable'
+        exit 1
+
     - name: Deploy to GitHub Pages
       id: deployment
       uses: actions/deploy-pages@v5
