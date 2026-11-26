@@ -64,9 +64,14 @@ try:
     api_data = response.json()
     print(f"API response keys: {list(api_data.keys())}")
 except Exception as e:
-    print(f"Error fetching validator queue data: {e}")
+    print(f"Error fetching validator queue data: {type(e).__name__}: {e}")
     if response is not None:
-        print(f"Response: {response.text[:500]}")
+        # ponytail: status metadata only, body may echo request headers; fetch it manually when debugging
+        print(
+            f"Response: HTTP {response.status_code} {response.reason or '-'}, "
+            f"content-type={response.headers.get('Content-Type', '-')}, "
+            f"length={len(response.content)}"
+        )
     sys.exit(1)
 
 metadata = api_data["metadata"]
